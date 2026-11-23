@@ -103,5 +103,39 @@ def test_monetization_gate_revenue_ledger_and_telemetry_overview():
         assert tel["monetization"]["active_monetized_blogs"] == 1
         assert tel["monetization"]["gross_revenue_usd"] == 12.5
         assert tel["monetization"]["effective_rpm_usd"] == 5.0
+        assert tel["country_filter"] is None
+        assert tel["monetization"]["total_clicks"] == 48
+        assert tel["monetization"]["ctr_pct"] == 1.92
+        assert len(tel["monetization"]["by_country"]) == 1
+        assert tel["monetization"]["by_country"][0] == {
+            "country_code": "DK",
+            "gross_revenue_usd": 12.5,
+            "pageviews": 2500,
+            "clicks": 48,
+            "ctr_pct": 1.92,
+            "effective_rpm_usd": 5.0,
+        }
         assert tel["finops"]["gemini_monthly_spend_usd"] == 0.05
+        assert tel["finops"]["gemini_monthly_cap_usd"] == 30.0
+        assert tel["finops"]["remaining_cap_usd"] == 29.95
+        assert tel["finops"]["utilization_pct"] == 0.17
+        assert tel["finops"]["alert_80pct_active"] is False
+        assert tel["finops"]["circuit_breaker_tripped"] is False
         assert tel["finops"]["net_margin_usd"] == 12.45
+
+        # 5. Verify country_code query filter on telemetry overview
+        dk_res = client.get("/api/v1/telemetry/overview", params={"country_code": "dk"}, headers=headers)
+        assert dk_res.status_code == 200
+        dk_tel = dk_res.json()
+        assert dk_tel["country_filter"] == "DK"
+        assert dk_tel["content_pipeline"]["total_published"] == 1
+        assert dk_tel["monetization"]["gross_revenue_usd"] == 12.5
+
+        se_res = client.get("/api/v1/telemetry/overview", params={"country_code": "SE"}, headers=headers)
+        assert se_res.status_code == 200
+        se_tel = se_res.json()
+        assert se_tel["country_filter"] == "SE"
+        assert se_tel["content_pipeline"]["total_published"] == 0
+        assert se_tel["monetization"]["active_monetized_blogs"] == 0
+        assert se_tel["monetization"]["gross_revenue_usd"] == 0.0
+        assert se_tel["monetization"]["by_country"] == []
