@@ -33,3 +33,5 @@ coverage.xml
 
 # Visual Studio state & cache
 .vs/
+
+*.log
