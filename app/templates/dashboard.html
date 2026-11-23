@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ app_name }} - Command Center</title>
+  <style>
+    :root {
+      --bg: #F8FAFC;
+      --surface: #FFFFFF;
+      --text: #0F172A;
+      --muted: #475569;
+      --primary: #0F2A3C;
+      --accent: #0D7A6E;
+      --warning: #B45309;
+      --danger: #B91C1C;
+      --border: #E2E8F0;
+    }
+    [data-theme="dark"] {
+      --bg: #0B1120;
+      --surface: #111827;
+      --text: #F8FAFC;
+      --muted: #94A3B8;
+      --primary: #1E3A5F;
+      --accent: #14B8A6;
+      --border: #1F2937;
+    }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    header {
+      background: var(--primary);
+      color: #FFFFFF;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .container { max-width: 1200px; margin: 1.5rem auto; padding: 0 1.5rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #FFF;
+      background: var(--accent);
+    }
+    .badge.warn { background: var(--warning); }
+    .badge.danger { background: var(--danger); }
+    table { width: 100%; border-collapse: collapse; margin-top: 0.75rem; }
+    th, td { text-align: left; padding: 0.65rem; border-bottom: 1px solid var(--border); font-size: 0.92rem; }
+    button {
+      background: var(--accent);
+      color: #FFF;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <strong>EU Multi-Country AI Publishing Platform</strong>
+      <div style="font-size:0.82rem;opacity:0.85;">Phase 1: Foundation and Governance Core (Decisions 01-75)</div>
+    </div>
+    <div>
+      <button type="button" onclick="toggleTheme()" aria-label="Toggle Light or Dark Theme">Toggle Light/Dark</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="grid">
+      <div class="card">
+        <div style="color:var(--muted);font-size:0.85rem;">AI Provider Policy (Decision 07)</div>
+        <h3 style="margin:0.3rem 0;">Google Gemini Only</h3>
+        <span class="badge">ENFORCED</span>
+      </div>
+      <div class="card">
+        <div style="color:var(--muted);font-size:0.85rem;">YMYL Safety Gate (Decision 72)</div>
+        <h3 style="margin:0.3rem 0;">Health and Finance Hold</h3>
+        <span class="badge warn">MANDATORY HUMAN GATE</span>
+      </div>
+      <div class="card">
+        <div style="color:var(--muted);font-size:0.85rem;">System Kill Switch (Decision 38)</div>
+        <h3 style="margin:0.3rem 0;">{{ "HALTED" if kill_switch else "NOMINAL (ACTIVE)" }}</h3>
+        <span class="badge {{ 'danger' if kill_switch else '' }}">{{ "EMERGENCY STOP" if kill_switch else "READY" }}</span>
+      </div>
+      <div class="card">
+        <div style="color:var(--muted);font-size:0.85rem;">Master Brand (Pending Register)</div>
+        <h3 style="margin:0.3rem 0;">Veltora / Veridian / Elvion</h3>
+        <span class="badge warn">SHORTLISTED</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0;">7-Country Blogger Network Registry (Decisions 03, 04, 05, 11, 39, 68)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Wave</th>
+            <th>Country</th>
+            <th>IANA Time Zone</th>
+            <th>Languages</th>
+            <th>Warm-Up Stage</th>
+            <th>Daily Cap</th>
+            <th>Domain Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in blogs %}
+          <tr>
+            <td>Wave {{ b.rollout_wave }}</td>
+            <td><strong>{{ b.country_name }} ({{ b.country_code }})</strong></td>
+            <td><code>{{ b.iana_timezone }}</code></td>
+            <td>{{ b.languages_csv }}</td>
+            <td>Stage {{ b.warmup_stage }}</td>
+            <td>{{ b.daily_post_cap }} posts/day</td>
+            <td>{{ b.domain_name }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    function toggleTheme() {
+      const root = document.documentElement;
+      root.setAttribute('data-theme', root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    }
+  </script>
+</body>
+</html>
