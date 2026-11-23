@@ -160,13 +160,21 @@ async def record_revenue_entry(
     )
     return entry
 
+async def build_telemetry_overview(
+    db: AsyncSession,
+    *,
+    country_code: str | None = None,
+) -> dict:
+    normalized_country = country_code.strip().upper() if country_code else None
 
-async def build_telemetry_overview(db: AsyncSession) -> dict:
     ctrl = (await db.execute(select(SystemControl).limit(1))).scalar_one_or_none()
     total_drafts = int((await db.execute(select(func.count(ArticleDraft.id)))).scalar_one() or 0)
-    total_published = int(
-        (await db.execute(select(func.count(PublishJob.id)).where(PublishJob.status == "PUBLISHED"))).scalar_one() or 0
-    )
+
+    published_stmt = select(func.count(PublishJob.id)).where(PublishJob.status == "PUBLISHED")
+    if normalized_country:
+        published_stmt = published_stmt.where(PublishJob.country_code == normalized_country)
+    total_published = int((await db.execute(published_stmt)).scalar_one() or 0)
+
     total_evals = int((await db.execute(select(func.count(ComplianceEvaluation.id)))).scalar_one() or 0)
     passed_evals = int(
         (
@@ -178,28 +186,69 @@ async def build_telemetry_overview(db: AsyncSession) -> dict:
     )
     compliance_pass_rate = round((passed_evals / total_evals * 100.0), 2) if total_evals > 0 else 100.0
 
-    total_revenue_usd = float(
-        (await db.execute(select(func.coalesce(func.sum(RevenueLedgerEntry.gross_amount_usd), 0.0)))).scalar_one() or 0.0
+    ledger_filters = []
+    if normalized_country:
+        ledger_filters.append(RevenueLedgerEntry.country_code == normalized_country)
+
+    totals_stmt = select(
+        func.coalesce(func.sum(RevenueLedgerEntry.gross_amount_usd), 0.0),
+        func.coalesce(func.sum(RevenueLedgerEntry.pageviews), 0),
+        func.coalesce(func.sum(RevenueLedgerEntry.clicks), 0),
     )
-    total_pageviews = int(
-        (await db.execute(select(func.coalesce(func.sum(RevenueLedgerEntry.pageviews), 0)))).scalar_one() or 0
-    )
+    if ledger_filters:
+        totals_stmt = totals_stmt.where(*ledger_filters)
+
+    raw_revenue, raw_pageviews, raw_clicks = (await db.execute(totals_stmt)).one()
+    total_revenue_usd = float(raw_revenue or 0.0)
+    total_pageviews = int(raw_pageviews or 0)
+    total_clicks = int(raw_clicks or 0)
+
     gemini_spend_usd = await get_current_month_spend_usd(db)
     gemini_cap_usd = await get_monthly_gemini_cap_usd(db)
     net_margin_usd = round(total_revenue_usd - gemini_spend_usd, 4)
     rpm_usd = round((total_revenue_usd / total_pageviews * 1000.0), 4) if total_pageviews > 0 else 0.0
+    ctr_pct = round((total_clicks / total_pageviews * 100.0), 2) if total_pageviews > 0 else 0.0
+    utilization_pct = round((gemini_spend_usd / gemini_cap_usd * 100.0), 2) if gemini_cap_usd > 0 else 0.0
+    remaining_cap_usd = round(max(gemini_cap_usd - gemini_spend_usd, 0.0), 4)
 
-    active_monetized_blogs = int(
-        (
-            await db.execute(
-                select(func.count(MonetizationProfile.id)).where(MonetizationProfile.readiness_status == "ACTIVE")
-            )
-        ).scalar_one()
-        or 0
+    active_stmt = select(func.count(MonetizationProfile.id)).where(MonetizationProfile.readiness_status == "ACTIVE")
+    if normalized_country:
+        active_stmt = active_stmt.where(MonetizationProfile.country_code == normalized_country)
+    active_monetized_blogs = int((await db.execute(active_stmt)).scalar_one() or 0)
+
+    country_stmt = (
+        select(
+            RevenueLedgerEntry.country_code,
+            func.coalesce(func.sum(RevenueLedgerEntry.gross_amount_usd), 0.0).label("gross_revenue_usd"),
+            func.coalesce(func.sum(RevenueLedgerEntry.pageviews), 0).label("pageviews"),
+            func.coalesce(func.sum(RevenueLedgerEntry.clicks), 0).label("clicks"),
+        )
+        .group_by(RevenueLedgerEntry.country_code)
+        .order_by(func.sum(RevenueLedgerEntry.gross_amount_usd).desc())
     )
+    if ledger_filters:
+        country_stmt = country_stmt.where(*ledger_filters)
+
+    country_rows = (await db.execute(country_stmt)).all()
+    by_country = []
+    for row in country_rows:
+        c_rev = float(row.gross_revenue_usd or 0.0)
+        c_pv = int(row.pageviews or 0)
+        c_clk = int(row.clicks or 0)
+        by_country.append(
+            {
+                "country_code": row.country_code,
+                "gross_revenue_usd": round(c_rev, 4),
+                "pageviews": c_pv,
+                "clicks": c_clk,
+                "ctr_pct": round((c_clk / c_pv * 100.0), 2) if c_pv > 0 else 0.0,
+                "effective_rpm_usd": round((c_rev / c_pv * 1000.0), 4) if c_pv > 0 else 0.0,
+            }
+        )
 
     return {
         "system_halted": bool(ctrl.global_kill_switch) if ctrl else False,
+        "country_filter": normalized_country,
         "content_pipeline": {
             "total_drafts": total_drafts,
             "total_published": total_published,
@@ -210,11 +259,18 @@ async def build_telemetry_overview(db: AsyncSession) -> dict:
             "active_monetized_blogs": active_monetized_blogs,
             "gross_revenue_usd": round(total_revenue_usd, 4),
             "total_pageviews": total_pageviews,
+            "total_clicks": total_clicks,
+            "ctr_pct": ctr_pct,
             "effective_rpm_usd": rpm_usd,
+            "by_country": by_country,
         },
         "finops": {
             "gemini_monthly_spend_usd": round(gemini_spend_usd, 6),
             "gemini_monthly_cap_usd": round(gemini_cap_usd, 2),
+            "remaining_cap_usd": remaining_cap_usd,
+            "utilization_pct": utilization_pct,
+            "alert_80pct_active": utilization_pct >= 80.0,
+            "circuit_breaker_tripped": gemini_spend_usd >= gemini_cap_usd if gemini_cap_usd > 0 else False,
             "net_margin_usd": net_margin_usd,
         },
     }

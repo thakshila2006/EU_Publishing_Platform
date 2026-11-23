@@ -97,7 +97,8 @@ async def list_revenue_ledger(
 
 @router.get("/telemetry/overview")
 async def get_telemetry_overview(
+    country_code: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await build_telemetry_overview(db)
+    return await build_telemetry_overview(db, country_code=country_code)
