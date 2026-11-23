@@ -1,4 +1,4 @@
-# Veltora EU Publishing Platform ? Architecture & API Reference
+# Veltora EU Publishing Platform - Architecture & API Reference
 
 **Location:** `C:\EU_Publishing_Platform`  
 **Stack:** FastAPI, AsyncSQLAlchemy, Pydantic, Jinja2, Pytest (Python 3.12)
@@ -41,7 +41,7 @@
 | **P2** | `GET /api/v1/finops/gemini-status` | Authenticated | Inspect current monthly Gemini spend, cap, 80% alert, and breaker state |
 | **P3** | `POST /api/v1/publish/articles/{id}` | `OWNER`, `ADMIN`, `EDITOR` | Publish eligible article with idempotency deduplication & warm-up quota guard |
 | **P3** | `GET /api/v1/publish/jobs` | Authenticated | List queued and published Blogger jobs |
-| **P3** | `PATCH /api/v1/blogs/{country_code}/warmup-stage` | `OWNER`, `ADMIN` | Update country blog warm-up stage (`1`?`3`) and daily post cap |
+| **P3** | `PATCH /api/v1/blogs/{country_code}/warmup-stage` | `OWNER`, `ADMIN` | Update country blog warm-up stage (`1` to `3`) and daily post cap |
 | **P3** | `GET /api/v1/blogs/{country_code}/internal-links` | Authenticated | Retrieve country- and language-isolated internal link targets |
 | **P3** | `POST /api/v1/blogs/{country_code}/xml-theme` | `OWNER`, `ADMIN` | Generate and snapshot EU-compliant Blogger XML theme (`application/xml`) |
 | **P4** | `POST /api/v1/articles/{id}/compliance-check` | `OWNER`, `ADMIN`, `EDITOR`, `YMYL_EXPERT_REVIEWER` | Run SEO, QA, GDPR/DSA disclosure, and YMYL approval checks |
